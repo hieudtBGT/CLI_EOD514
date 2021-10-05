@@ -43,6 +43,7 @@ const SubMenuActivePOS = [
     }
 ];
 
+// Return Array Json Object
 const GetArrJSONData = filePath => {
     const workBook = XLSX.readFile(filePath, { cellDates: true });
     const firstSheetName = workBook.SheetNames[0];
@@ -53,6 +54,8 @@ const GetArrJSONData = filePath => {
     return data;
 }
 
+// Proceed EOD514 here
+// Return a Json Object
 const HandleData = async (ArrJsonData, totalGame) => {
     try {
         let filteredData = []
@@ -91,9 +94,11 @@ const HandleData = async (ArrJsonData, totalGame) => {
     }
 }
 
+// Mark
 const bypass = chalk.greenBright('[  OK  ] ')
 const failed = chalk.yellowBright('[  FAIL  ] ')
 
+// Prompt function
 const MyPrompt = () => {
     inquirer.prompt(MainMenu)
         .then(answers => {
