@@ -1,0 +1,22 @@
+{
+  "name": "cli_514",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "devDependencies": {
+    "nodemon": "^2.0.13"
+  },
+  "scripts": {
+    "start": "nodemon index.js"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "figlet": "^1.5.2",
+    "inquirer": "^8.1.5",
+    "xlsx": "^0.17.2"
+  },
+  "bin":"./index.js",
+  "pkg": {
+    "assets": "./node_modules/figlet/fonts/Standard.flf"
+  }
+}
