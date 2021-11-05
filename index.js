@@ -21,6 +21,7 @@ const SubMenuActivePOS = [
         message: chalk.greenBright('Enter file path of EOD514.xlsx:'),
 
         validate(value) {
+            value = value.replace(/"/g, '');
             if (fs.existsSync(value)) {
                 return true;
             }
@@ -44,12 +45,14 @@ const SubMenuActivePOS = [
 ];
 
 // Return Array Json Object
-const GetArrJSONData = filePath => {
-    const workBook = XLSX.readFile(filePath, { cellDates: true });
+const GetArrJSONData = async filePath => {
+    filePath = filePath.replace(/"/g, '');
+
+    const workBook = XLSX.readFile(filePath);
     const firstSheetName = workBook.SheetNames[0];
     const workSheet = workBook.Sheets[firstSheetName];
 
-    const data = XLSX.utils.sheet_to_json(workSheet);
+    const data = XLSX.utils.sheet_to_json(workSheet, { raw: true });
 
     return data;
 }
@@ -73,17 +76,20 @@ const HandleData = async (ArrJsonData, totalGame) => {
             const row = {
                 pos: ArrJsonData[i]['pos'],
                 net_sales_amt: posSales,
-                oss_date: ArrJsonData[i]['oss_date']
+                oss_date: ArrJsonData[i]['eod_date']
             }
 
             filteredData.push(row)
         }
 
-        let date = ArrJsonData[0]['oss_date']
-        date = new Date(date).toDateString()
+        let date = ArrJsonData[ArrJsonData.length - 1]['eod_date']
+
+        // package issue wrong date : https://github.com/SheetJS/sheetjs/issues/1223
+        // below code will fix it
+        date = new Date(Math.round((date - 25569) * 86400 * 1000)).toDateString();
 
         let dailySales = filteredData.reduce((sale, row) => {
-            return sale += row.net_sales_amt
+            return sale += Number(row.net_sales_amt);
         }, 0)
 
         let activePOS = filteredData.filter(row => row.net_sales_amt != 0).length
@@ -94,43 +100,44 @@ const HandleData = async (ArrJsonData, totalGame) => {
     }
 }
 
-// Mark
-const bypass = chalk.greenBright('[  OK  ] ')
-const failed = chalk.yellowBright('[  FAIL  ] ')
+const MyPrompt = async () => {
+    // Mark
+    const bypass = chalk.greenBright('[  OK  ] ');
+    const failed = chalk.yellowBright('[  FAIL  ] ');
+    try {
+        const answerMainMenu = await inquirer.prompt(MainMenu);
 
-// Prompt function
-const MyPrompt = () => {
-    inquirer.prompt(MainMenu)
-        .then(answers => {
-            if (answers.menu === 'Exit') {
-                console.log('\nGoodbye.')
+        if (answerMainMenu.menu === 'Exit') {
+            console.log('\n', chalk.cyanBright('Goodbye.'));
+            setTimeout(() => { }, 500);
+        };
+
+        if (answerMainMenu.menu === 'Count Active POS') {
+            const inputArgs = await inquirer.prompt(SubMenuActivePOS);
+
+            console.log('\n', chalk.cyanBright('In Progress ...'));
+
+            let arrJson = await GetArrJSONData(inputArgs.filePath);
+
+            let { date, dailySales, activePOS } = await HandleData(arrJson, inputArgs.totalGame);
+
+            if (date !== 'Invalid Date' && isNaN(dailySales) == false) {
+                dailySales = dailySales.toLocaleString();
+                activePOS = activePOS.toLocaleString();
+
+                console.log(bypass, chalk.greenBright('Date .............: '), chalk.cyanBright(date));
+                console.log(bypass, chalk.greenBright('Daily sales.......: '), chalk.cyanBright(dailySales));
+                console.log(bypass, chalk.greenBright('Active POS count..: '), chalk.cyanBright(activePOS));
+                console.log('\n');
             }
+            else console.log(`${failed}Incorrect file, please try again with EOD514.xlsx'path !\n`)
 
-            if (answers.menu === 'Count Active POS') {
-                inquirer.prompt(SubMenuActivePOS)
-                    .then(async inputPath => {
-                        let arrJson = GetArrJSONData(inputPath.filePath)
-
-                        let { date, dailySales, activePOS } = await HandleData(arrJson, inputPath.totalGame)
-
-                        if (date !== 'Invalid Date' && isNaN(dailySales) == false) {
-                            dailySales = dailySales.toLocaleString()
-                            activePOS = activePOS.toLocaleString()
-                            console.log('\n')
-                            console.log(bypass, chalk.greenBright('Date .............: '), chalk.blueBright(date))
-                            console.log(bypass, chalk.greenBright('Daily sales.......: '), chalk.blueBright(dailySales))
-                            console.log(bypass, chalk.greenBright('Active POS count..: '), chalk.blueBright(activePOS))
-                            console.log('\n\n')
-                        }
-                        else console.log('\n', failed, "Incorrect file, please try again with EOD514.xlsx'path !\n")
-
-                        return MyPrompt()
-                    })
-                    .catch(readError => console.log(failed, readError));
-            }
-        }).catch(error => console.log(`${failed} Unknown error: ${error}`));
-
-};
+            return MyPrompt()
+        }
+    } catch (error) {
+        console.log(`${failed}Unknown error: ${error}\n`)
+    }
+}
 
 const Main = () => {
     console.log(chalk.greenBright(figlet.textSync('H Y O U D O U')))
